@@ -6,17 +6,16 @@ import Data.List (find)
 import Data.Maybe (fromJust)
 import Text.Printf
 
-data Months = Jan | Feb | Mar | Apr | May | Jun
+data Month = Jan | Feb | Mar | Apr | May | Jun
             | Jul | Aug | Sep | Oct | Nov | Dec
               deriving (Show, Eq, Enum, Bounded, Ord)
 
-data Days = Mon | Tue | Wed | Thu | Fri | Sat | Sun
+data Day = Mon | Tue | Wed | Thu | Fri | Sat | Sun
             deriving (Show, Eq, Enum, Bounded)
 
-data Date = Date {  dayOfWeek :: Days
-                  , dayNumber :: Int
-                  , month     :: Months
-                  , year      :: Int }
+data Date = Date { dayNumber :: Int,
+                   month     :: Month,
+                   year      :: Int }
             deriving Eq
 
 instance Show Date where
@@ -34,7 +33,7 @@ isLeapYear y
     | 4 `divides` y  = True
     | otherwise = False
 
-monthDays :: Int -> Months -> Int
+monthDays :: Int -> Month -> Int
 monthDays y m
     | m `elem` [Jan, Mar, May, Jul, Aug, Oct, Dec] = 31
     | m `elem` [Apr, Jun, Sep, Nov] = 30
@@ -47,7 +46,7 @@ sums = scanl (+) 0
 mdTable :: [Int]
 mdTable = sums [monthDays 1 (toEnum m) | m <- [0..10]]
 
-daysUpToMonth :: Int -> Months -> Int
+daysUpToMonth :: Int -> Month -> Int
 daysUpToMonth y m
     | isLeapYear y && m > Feb = md + 1
     | otherwise = md
@@ -55,16 +54,20 @@ daysUpToMonth y m
       -- XXX This should be a binary search or an array.
       md = mdTable !! fromEnum m
 
+dayOfWeekAbsolute :: Int -> Day
+dayOfWeekAbsolute n = toEnum $ (n + 6) `mod` 7
+
+dayOfWeek :: Date -> Day
+dayOfWeek d = dayOfWeekAbsolute $ fromEnum d
+
 instance Enum Date where
     fromEnum d = ((146097 * year d) `div` 400) +
                  daysUpToMonth (year d) (month d) + dayNumber d - 1
-    toEnum n = Date { dayOfWeek = dow,
-                      dayNumber = dn,
+    toEnum n = Date { dayNumber = dn,
                       month = m,
                       year = y }
                where
                  -- http://stackoverflow.com/questions/11188621/
-                 dow = toEnum $ (n + 6) `mod` 7
                  qcents = n `div` 146097
                  qcentDays = n `mod` 146097
                  cents = min (qcentDays `div` 36524) 3
@@ -84,4 +87,4 @@ main :: IO ()
 main = putStr $ unlines $ map show $
        [x | x <- days, dayOfWeek x `elem` [Mon, Wed, Fri]]
        where
-         days  = [Date Mon 2 Aug 2010..Date Sat 22 Aug 2015]
+         days  = [Date 2 Aug 2010..Date 22 Aug 2015]
