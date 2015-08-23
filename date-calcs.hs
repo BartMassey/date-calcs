@@ -1,6 +1,9 @@
--- Copyright (c) 2015 Adrian "Boom" Nwk
--- Extensively revised by Bart Massey
+-- Copyright © 2015 Bart Massey
 -- Day-of-week computations
+
+-- This program is licensed under the "MIT License".
+-- Please see the file COPYING in this distribution for
+-- license terms.
 
 import Data.List (find)
 import Data.Maybe (fromJust)
