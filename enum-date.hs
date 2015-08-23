@@ -55,19 +55,24 @@ daysUpToMonth y m
       md = mdTable !! fromEnum m
 
 dayOfWeekAbsolute :: Int -> Day
-dayOfWeekAbsolute n = toEnum $ (n + 6) `mod` 7
+dayOfWeekAbsolute n = toEnum $ (n + 719527 + 6) `mod` 7
 
 dayOfWeek :: Date -> Day
 dayOfWeek d = dayOfWeekAbsolute $ fromEnum d
 
 instance Enum Date where
+
+    -- XXX We arbitrarily pick "day 0" to be 1 January 1970 (day 719527 A.D.).
+    -- Any valid A.D. Gregorian calendar date should work.
     fromEnum d = ((146097 * year d) `div` 400) +
-                 daysUpToMonth (year d) (month d) + dayNumber d - 1
-    toEnum n = Date { dayNumber = dn,
+                 daysUpToMonth (year d) (month d) + dayNumber d - 719527 - 1
+
+    toEnum n0 = Date { dayNumber = dn,
                       month = m,
                       year = y }
                where
                  -- http://stackoverflow.com/questions/11188621/
+                 n = n0 + 719527
                  qcents = n `div` 146097
                  qcentDays = n `mod` 146097
                  cents = min (qcentDays `div` 36524) 3
