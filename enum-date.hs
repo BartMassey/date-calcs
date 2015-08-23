@@ -19,7 +19,7 @@ data Date = Date { dayNumber :: Int,
             deriving Eq
 
 instance Show Date where
-    show d = printf "%s %d/%s/%d" (show (dayOfWeek d))
+    show d = printf "%s %02d %s %d" (show (dayOfWeek d))
              (dayNumber d) (show (month d)) (year d)
 
 divides :: Integral a => a -> a -> Bool
