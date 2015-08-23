@@ -2,11 +2,13 @@
 -- Extensively revised by Bart Massey
 -- Day-of-week computations
 
+import Data.List (find)
+import Data.Maybe (fromJust)
 import Text.Printf
 
 data Months = Jan | Feb | Mar | Apr | May | Jun
             | Jul | Aug | Sep | Oct | Nov | Dec
-              deriving (Show, Eq, Enum, Bounded)
+              deriving (Show, Eq, Enum, Bounded, Ord)
 
 data Days = Mon | Tue | Wed | Thu | Fri | Sat | Sun
             deriving (Show, Eq, Enum, Bounded)
@@ -21,58 +23,65 @@ instance Show Date where
     show d = printf "%s %d/%s/%d" (show (dayOfWeek d))
              (dayNumber d) (show (month d)) (year d)
 
-circSucc :: (Enum a, Bounded a, Eq a) => a -> a
-circSucc e
-         | e == (maxBound `asTypeOf` e) = minBound `asTypeOf` e
-         | otherwise = succ e
-
-dateSucc :: Date -> Date
-dateSucc (Date d dn m y) = Date (circSucc d) (succ dn) m y
-
-daysFromDate :: Date -> [Date]
-daysFromDate now =
-    normalNow : daysFromDate (dateSucc normalNow)
-    where
-      normalNow = dateNormalize now
-
-dateToDate :: Date -> Date -> [Date]
-dateToDate now later =
-    takeWhile (\d -> d /= later) $ daysFromDate now
-
 divides :: Integral a => a -> a -> Bool
 divides d n | n < 0 = divides d (-n)
 divides d n = n `mod` d == 0
 
--- If the date is not normalized, it means that it is the end of the month
--- If the date is normalized, it means that the date is still within the month
+isLeapYear :: Int -> Bool
+isLeapYear y
+    | 400 `divides` y  = True
+    | 100 `divides` y  = False
+    | 4 `divides` y  = True
+    | otherwise = False
 
-dateNormalized :: Date -> Bool
-dateNormalized (Date _ dn m0 y0) =
-    (monthsWith30 m0 && dn <= 30) ||
-    (monthsWith31 m0 && dn <= 31) ||
-    (m0 == Feb && dn <= febDays y0)
+monthDays :: Int -> Months -> Int
+monthDays y m
+    | m `elem` [Jan, Mar, May, Jul, Aug, Oct, Dec] = 31
+    | m `elem` [Apr, Jun, Sep, Nov] = 30
+    | isLeapYear y = 29
+    | otherwise = 28
+
+sums :: Integral a => [a] -> [a]
+sums = scanl (+) 0
+
+mdTable :: [Int]
+mdTable = sums [monthDays 1 (toEnum m) | m <- [0..10]]
+
+daysUpToMonth :: Int -> Months -> Int
+daysUpToMonth y m
+    | isLeapYear y && m > Feb = md + 1
+    | otherwise = md
     where
-      monthsWith31 m = m `elem` [Jan, Mar, May, Jul, Aug, Oct, Dec]
-      monthsWith30 m = m `elem` [Apr, Jun, Sep, Nov]
-      febDays y
-          | 400 `divides` y  = 29
-          | 100 `divides` y  = 28
-          | 4 `divides` y  = 29
-          | otherwise = 28
+      -- XXX This should be a binary search or an array.
+      md = mdTable !! fromEnum m
 
-dateNormalize :: Date -> Date
-dateNormalize now@(Date d _ m y)
-  | dateNormalized now =
-      now                     -- Normal day
-  | m == Dec =
-      Date d 1 Jan (succ y)   -- End of Year
-  | otherwise =
-      Date d 1 (succ m) y     -- End of Month
-
-------------------------------------- New Edits
+instance Enum Date where
+    fromEnum d = ((146097 * year d) `div` 400) +
+                 daysUpToMonth (year d) (month d) + dayNumber d - 1
+    toEnum n = Date { dayOfWeek = dow,
+                      dayNumber = dn,
+                      month = m,
+                      year = y }
+               where
+                 -- http://stackoverflow.com/questions/11188621/
+                 dow = toEnum $ (n + 6) `mod` 7
+                 qcents = n `div` 146097
+                 qcentDays = n `mod` 146097
+                 cents = min (qcentDays `div` 36524) 3
+                 centDays = qcentDays - cents * 36524
+                 quads = min (centDays `div` 1461) 24
+                 quadDays = centDays - quads * 1461
+                 anns = min (quadDays `div` 365) 3
+                 annDays = quadDays - anns * 365
+                 y = qcents * 400 + cents * 100 + quads * 4 + anns
+                 -- XXX This should be a binary search or an array.
+                 m = fromJust $
+                     find (\m0 -> daysUpToMonth y m0 <= annDays)
+                          [Dec, Nov .. Jan]
+                 dn = annDays - daysUpToMonth y m + 1
 
 main :: IO ()
 main = putStr $ unlines $ map show $
        [x | x <- days, dayOfWeek x `elem` [Mon, Wed, Fri]]
        where
-         days  = dateToDate (Date Mon 2 Aug 2010) (Date Sat 22 Aug 2015)
+         days  = [Date Mon 2 Aug 2010..Date Sat 22 Aug 2015]
